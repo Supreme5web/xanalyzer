@@ -90,6 +90,18 @@ class TwitterAPIIOProvider(XProvider):
         if not handle:
             raise XAccountNotFoundError(f"Could not parse an X handle from {twitter_url}")
 
+        # Many pump.fun/meme-coin listings link a specific status URL rather
+        # than a profile page - often on some other account (a promoter's
+        # tweet), not the project's own. In that case go straight for that
+        # exact tweet by ID instead of relying on it showing up in the
+        # linked account's "last tweets" list, which can come back empty
+        # even though the specific tweet itself is fetchable (quiet account,
+        # tweet has scrolled out of the recent window, etc).
+        if tweet_id:
+            tweet = self._fetch_tweet_by_id(tweet_id)
+            if tweet:
+                return self._to_xpost(tweet)
+
         tweets = self._fetch_last_tweets(handle)
         if not tweets:
             raise NoRecentPostError(f"No tweets found for @{handle}")
@@ -99,6 +111,25 @@ class TwitterAPIIOProvider(XProvider):
             raise NoRecentPostError(f"No relevant tweet found for @{handle}")
 
         return self._to_xpost(tweet)
+
+    def _fetch_tweet_by_id(self, tweet_id: str) -> dict | None:
+        """Fetch a single tweet directly via /twitter/tweets. Returns None
+        (rather than raising) on any failure so callers can fall back to
+        the last-tweets flow - a miss here isn't fatal since there's a
+        fallback path."""
+        url = f"{self.base_url}/twitter/tweets"
+        headers = {"X-API-Key": self.api_key}
+        params = {"tweet_ids": tweet_id}
+        try:
+            resp = requests.get(url, headers=headers, params=params, timeout=self.timeout)
+            resp.raise_for_status()
+            data = resp.json()
+        except requests.RequestException as exc:
+            log.warning("X API tweet-by-id request failed for %s: %s", tweet_id, exc)
+            return None
+
+        tweets = data.get("tweets") or []
+        return tweets[0] if tweets else None
 
     def _fetch_last_tweets(self, handle: str) -> list[dict]:
         url = f"{self.base_url}/twitter/user/last_tweets"
