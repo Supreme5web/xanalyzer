@@ -70,10 +70,29 @@ def get_token_info(contract_address: str, timeout: int = 10) -> TokenInfo:
     telegram_url = None
     socials_map = {}
 
+    # DexScreener's social entries come in one of two shapes depending on
+    # endpoint/response version:
+    #   {"type": "twitter", "url": "https://x.com/handle"}   (older shape)
+    #   {"platform": "twitter", "handle": "handle"}          (current shape)
+    # Handle both so a social link is never missed just because of naming.
+    def _social_platform_and_url(social: dict) -> tuple[str, str | None]:
+        platform = (social.get("type") or social.get("platform") or "").lower()
+        url = social.get("url")
+        if not url:
+            handle = social.get("handle")
+            if handle:
+                handle = handle.lstrip("@")
+                if platform in ("twitter", "x"):
+                    url = f"https://x.com/{handle}"
+                elif platform == "telegram":
+                    url = f"https://t.me/{handle}"
+                elif handle.startswith("http"):
+                    url = handle
+        return platform, url
+
     info = best_pair.get("info") or {}
     for social in info.get("socials", []) or []:
-        s_type = (social.get("type") or "").lower()
-        s_url = social.get("url")
+        s_type, s_url = _social_platform_and_url(social)
         if not s_url:
             continue
         socials_map[s_type] = s_url
