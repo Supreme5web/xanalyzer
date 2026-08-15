@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: x-analyzer-bot
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-3-5-haiku-20241022
+      - key: X_API_KEY
+        sync: false
+      - key: X_API_BASE_URL
+        value: https://api.twitterapi.io
+      - key: CACHE_TTL_SECONDS
+        value: "600"
+      - key: RATE_LIMIT_SECONDS
+        value: "5"
+      - key: USE_WEBHOOK
+        value: "true"
+      - key: WEBHOOK_SECRET
+        generateValue: true
