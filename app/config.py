@@ -15,9 +15,9 @@ def _get(name: str, required: bool = False, default: str = "") -> str:
 # --- Telegram ---
 TELEGRAM_BOT_TOKEN = _get("TELEGRAM_BOT_TOKEN", required=True)
 
-# --- AI summary provider (Anthropic Claude by default) ---
-ANTHROPIC_API_KEY = _get("ANTHROPIC_API_KEY", required=True)
-ANTHROPIC_MODEL = _get("ANTHROPIC_MODEL", default="claude-3-5-haiku-20241022")
+# --- AI summary provider (Google Gemini by default) ---
+GEMINI_API_KEY = _get("GEMINI_API_KEY", required=True)
+GEMINI_MODEL = _get("GEMINI_MODEL", default="gemini-3.5-flash-lite")
 
 # --- X / Twitter data provider (twitterapi.io by default, swappable) ---
 X_API_KEY = _get("X_API_KEY", required=True)

@@ -13,7 +13,7 @@ real engagement stats, and a short AI-generated summary.
    (`TwitterAPIIOProvider`) that fetches the account's latest non-reply post:
    text, image, likes, replies, views, and the post URL. Swap providers by
    editing this file only — everything else in the bot is provider-agnostic.
-3. **`app/ai_summary.py`** — sends the post text to the Anthropic API and
+3. **`app/ai_summary.py`** — sends the post text to the Gemini API and
    gets back one short, factual sentence.
 4. **`app/formatter.py`** — builds the Telegram message. **Never invents
    data**: if a stat (likes/comments/views) or a post isn't available, that
@@ -40,7 +40,7 @@ x-analyzer-bot/
 │   ├── config.py           # env var loading
 │   ├── dexscreener.py       # DexScreener API client
 │   ├── x_provider.py        # X/Twitter data client (swappable)
-│   ├── ai_summary.py        # AI summary via Anthropic API
+│   ├── ai_summary.py        # AI summary via Gemini API
 │   └── formatter.py         # builds the Telegram message
 ├── main.py                  # entry point
 ├── requirements.txt
@@ -55,8 +55,8 @@ Copy `.env.example` to `.env` and fill in:
 | Variable | Required | Notes |
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | yes | from [@BotFather](https://t.me/BotFather) |
-| `ANTHROPIC_API_KEY` | yes | for the AI summary |
-| `ANTHROPIC_MODEL` | no | defaults to `claude-3-5-haiku-20241022` |
+| `GEMINI_API_KEY` | yes | for the AI summary |
+| `GEMINI_MODEL` | no | defaults to `gemini-3.5-flash-lite` |
 | `X_API_KEY` | yes | your [twitterapi.io](https://twitterapi.io) key (or your alternate provider's key) |
 | `X_API_BASE_URL` | no | defaults to `https://api.twitterapi.io` |
 | `CACHE_TTL_SECONDS` | no | default `600` — how long a result is cached per contract |
@@ -77,7 +77,7 @@ Local development defaults to **polling** so you don't need a public URL:
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# In .env: fill in TELEGRAM_BOT_TOKEN, ANTHROPIC_API_KEY, X_API_KEY
+# In .env: fill in TELEGRAM_BOT_TOKEN, GEMINI_API_KEY, X_API_KEY
 # and set USE_WEBHOOK=false
 export $(grep -v '^#' .env | xargs)
 python main.py
@@ -96,7 +96,7 @@ and `WEBHOOK_SECRET` to any random string, then run `python main.py`.
    `render.yaml` and creates a **Web Service** automatically, with
    `WEBHOOK_SECRET` auto-generated for you.
 3. Fill in the secret env vars it prompts for (`TELEGRAM_BOT_TOKEN`,
-   `ANTHROPIC_API_KEY`, `X_API_KEY`).
+   `GEMINI_API_KEY`, `X_API_KEY`).
 4. Deploy. On startup the bot calls Telegram's `setWebhook` itself, pointed
    at `https://<your-service>.onrender.com/<your-bot-token>`. Check the
    logs for `X Analyzer bot starting (webhook) on port ... -> https://...`.
@@ -107,7 +107,7 @@ and `WEBHOOK_SECRET` to any random string, then run `python main.py`.
 2. Connect your repo.
 3. Build command: `pip install -r requirements.txt`
 4. Start command: `python main.py`
-5. Under **Environment**, add: `TELEGRAM_BOT_TOKEN`, `ANTHROPIC_API_KEY`,
+5. Under **Environment**, add: `TELEGRAM_BOT_TOKEN`, `GEMINI_API_KEY`,
    `X_API_KEY`, `USE_WEBHOOK=true`, and `WEBHOOK_SECRET` (any long random
    string — Render can generate one for you when adding the variable).
    Leave `PORT` and the public URL alone; Render supplies both automatically.
