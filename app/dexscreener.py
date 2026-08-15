@@ -12,7 +12,14 @@ import requests
 
 log = logging.getLogger(__name__)
 
-DEXSCREENER_TOKEN_URL = "https://api.dexscreener.com/latest/dex/tokens/{address}"
+# Current documented endpoint (see https://docs.dexscreener.com/api/reference).
+# Returns a bare JSON array of pairs for the given chain/token address - NOT
+# wrapped in a {"pairs": [...]} envelope like the old /latest/dex/tokens/
+# endpoint was. That old endpoint isn't in DexScreener's current docs anymore
+# and has been observed returning {"pairs": null} for newer pump.fun/
+# PumpSwap pairs even though the token has an active DexScreener page.
+DEXSCREENER_TOKEN_PAIRS_URL = "https://api.dexscreener.com/token-pairs/v1/{chain_id}/{address}"
+DEFAULT_CHAIN_ID = "solana"
 
 
 @dataclass
@@ -36,22 +43,28 @@ class TokenNotFoundError(DexScreenerError):
     pass
 
 
-def get_token_info(contract_address: str, timeout: int = 10) -> TokenInfo:
+def get_token_info(contract_address: str, chain_id: str = DEFAULT_CHAIN_ID, timeout: int = 10) -> TokenInfo:
     """
     Fetch token name/ticker/socials for a Solana contract address.
     Raises TokenNotFoundError if DexScreener has no pairs for this address,
     or DexScreenerError on any other request failure.
     """
-    url = DEXSCREENER_TOKEN_URL.format(address=contract_address)
+    url = DEXSCREENER_TOKEN_PAIRS_URL.format(chain_id=chain_id, address=contract_address)
     try:
         resp = requests.get(url, timeout=timeout)
+        # This endpoint 404s (rather than returning an empty array) when the
+        # address doesn't exist / has no pairs on this chain.
+        if resp.status_code == 404:
+            raise TokenNotFoundError(f"No DexScreener pairs found for {contract_address}")
         resp.raise_for_status()
         data = resp.json()
     except requests.RequestException as exc:
         log.warning("DexScreener request failed for %s: %s", contract_address, exc)
         raise DexScreenerError(str(exc)) from exc
 
-    pairs = data.get("pairs") or []
+    # This endpoint returns a bare JSON array of pairs directly (unlike the
+    # old /latest/dex/tokens/ endpoint, which wrapped them in {"pairs": [...]}).
+    pairs = data if isinstance(data, list) else []
     if not pairs:
         raise TokenNotFoundError(f"No DexScreener pairs found for {contract_address}")
 
