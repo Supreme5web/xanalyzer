@@ -50,9 +50,6 @@ def build_message(token: TokenInfo, post: XPost | None, summary: str | None) -> 
 
     lines.append(f"${token.ticker} — {token.name}")
 
-    if post and post.url:
-        lines.append(f"[🔗 View Original Post]({post.url})")
-
     return "\n".join(lines)
 
 
@@ -66,6 +63,15 @@ def build_no_post_message(token: TokenInfo, reason: str) -> str:
         "",
         f"_{reason}_",
     ]
-    if token.dexscreener_url:
-        lines.append(f"[🔗 View on DexScreener]({token.dexscreener_url})")
     return "\n".join(lines)
+
+
+def build_link_button(token: TokenInfo, post: XPost | None = None) -> tuple[str, str] | None:
+    """Returns (label, url) for the single link button attached to a reply,
+    or None if there's nothing to link to. Prefers the original X post when
+    we have one; falls back to the DexScreener pair page otherwise."""
+    if post and post.url:
+        return "🔗 View Original Post", post.url
+    if token.dexscreener_url:
+        return "🔗 View on DexScreener", token.dexscreener_url
+    return None

@@ -7,7 +7,7 @@ import asyncio
 import logging
 import re
 
-from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
@@ -52,14 +52,19 @@ async def _build_response(contract_address: str) -> dict:
     try:
         token = await loop.run_in_executor(None, dexscreener.get_token_info, contract_address)
     except dexscreener.TokenNotFoundError:
-        return {"kind": "error", "text": "⚠️ Couldn't find this contract address on DexScreener."}
+        return {"kind": "error", "text": "⚠️ Couldn't find this contract address on DexScreener.", "button": None}
     except dexscreener.DexScreenerError:
-        return {"kind": "error", "text": "⚠️ DexScreener lookup failed right now. Please try again shortly."}
+        return {
+            "kind": "error",
+            "text": "⚠️ DexScreener lookup failed right now. Please try again shortly.",
+            "button": None,
+        }
 
     if not token.twitter_url:
         return {
             "kind": "text",
             "text": formatter.build_no_post_message(token, "No X/Twitter account listed for this token."),
+            "button": formatter.build_link_button(token),
         }
 
     try:
@@ -68,16 +73,19 @@ async def _build_response(contract_address: str) -> dict:
         return {
             "kind": "text",
             "text": formatter.build_no_post_message(token, "Linked X account could not be found."),
+            "button": formatter.build_link_button(token),
         }
     except x_provider.NoRecentPostError:
         return {
             "kind": "text",
             "text": formatter.build_no_post_message(token, "No recent relevant post found on the X account."),
+            "button": formatter.build_link_button(token),
         }
     except x_provider.XProviderError:
         return {
             "kind": "text",
             "text": formatter.build_no_post_message(token, "X data lookup failed right now. Please try again shortly."),
+            "button": formatter.build_link_button(token),
         }
 
     try:
@@ -86,10 +94,19 @@ async def _build_response(contract_address: str) -> dict:
         summary = None  # Fall back to no summary rather than failing the whole request.
 
     message_text = formatter.build_message(token, post, summary)
+    button = formatter.build_link_button(token, post)
 
     if post.image_url:
-        return {"kind": "photo", "photo_url": post.image_url, "caption": message_text}
-    return {"kind": "text", "text": message_text}
+        return {"kind": "photo", "photo_url": post.image_url, "caption": message_text, "button": button}
+    return {"kind": "text", "text": message_text, "button": button}
+
+
+def _build_keyboard(result: dict) -> InlineKeyboardMarkup | None:
+    button = result.get("button")
+    if not button:
+        return None
+    label, url = button
+    return InlineKeyboardMarkup([[InlineKeyboardButton(label, url=url)]])
 
 
 async def analyze_and_reply(update: Update, contract_address: str) -> None:
@@ -115,18 +132,25 @@ async def analyze_and_reply(update: Update, contract_address: str) -> None:
         if result["kind"] != "error":
             response_cache.set(contract_address, result)
 
+    keyboard = _build_keyboard(result)
+
     if result["kind"] == "photo":
         try:
             await update.effective_message.reply_photo(
-                photo=result["photo_url"], caption=result["caption"], parse_mode=ParseMode.MARKDOWN
+                photo=result["photo_url"],
+                caption=result["caption"],
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=keyboard,
             )
             return
         except Exception:
             log.warning("Failed to send photo, falling back to text for %s", contract_address)
-            await update.effective_message.reply_text(result["caption"], parse_mode=ParseMode.MARKDOWN)
+            await update.effective_message.reply_text(
+                result["caption"], parse_mode=ParseMode.MARKDOWN, reply_markup=keyboard
+            )
             return
 
-    await update.effective_message.reply_text(result["text"], parse_mode=ParseMode.MARKDOWN)
+    await update.effective_message.reply_text(result["text"], parse_mode=ParseMode.MARKDOWN, reply_markup=keyboard)
 
 
 async def cmd_analyze(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
