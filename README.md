@@ -87,6 +87,17 @@ If you want to test webhook mode locally, expose your machine with a tool
 like `ngrok`, set `USE_WEBHOOK=true`, `WEBHOOK_URL=https://<ngrok-id>.ngrok.app`,
 and `WEBHOOK_SECRET` to any random string, then run `python main.py`.
 
+## Python version
+
+Pinned to **3.12.7** via `.python-version` (also set as `PYTHON_VERSION` in
+`render.yaml`). This matters: `python-telegram-bot` 21.6 is not compatible
+with Python 3.14's stricter `asyncio` behavior and will crash on startup
+with `RuntimeError: There is no current event loop in thread 'MainThread'`
+if run on 3.14, which is Render's current default for new services created
+without a version pin. If you set the service up manually rather than via
+the `render.yaml` Blueprint, also add `PYTHON_VERSION=3.12.7` under
+**Environment** in the Render dashboard.
+
 ## Deploy to Render (Web Service + webhook)
 
 **Option A — using `render.yaml` (recommended)**
